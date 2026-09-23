@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -19,12 +20,34 @@ document.addEventListener("DOMContentLoaded", () => {
         activityCard.className = "activity-card";
 
         const spotsLeft = details.max_participants - details.participants.length;
+        const participantsList = (details.participants || [])
+          .map(
+            (email) => `
+              <li>
+                <span>${email}</span>
+                <button
+                  type="button"
+                  class="remove-participant"
+                  data-activity="${encodeURIComponent(name)}"
+                  data-email="${encodeURIComponent(email)}"
+                  aria-label="Unregister ${email}"
+                  title="Unregister participant"
+                >&times;</button>
+              </li>`
+          )
+          .join("");
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <p class="participants-title"><strong>Participants:</strong></p>
+            <ul class="participants-list">
+              ${participantsList || '<li>No participants yet</li>'}
+            </ul>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -59,6 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
 
       if (response.ok) {
+        await fetchActivities();
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
@@ -79,6 +103,38 @@ document.addEventListener("DOMContentLoaded", () => {
       messageDiv.classList.remove("hidden");
       console.error("Error signing up:", error);
     }
+  });
+
+  activitiesList.addEventListener("click", async (event) => {
+    const removeButton = event.target.closest(".remove-participant");
+    if (!removeButton) {
+      return;
+    }
+
+    const activity = decodeURIComponent(removeButton.dataset.activity);
+    const email = decodeURIComponent(removeButton.dataset.email);
+
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
+        { method: "DELETE" }
+      );
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.detail || "Failed to unregister participant");
+      }
+
+      await fetchActivities();
+      messageDiv.textContent = result.message;
+      messageDiv.className = "success";
+    } catch (error) {
+      messageDiv.textContent = error.message;
+      messageDiv.className = "error";
+      console.error("Error unregistering participant:", error);
+    }
+
+    messageDiv.classList.remove("hidden");
   });
 
   // Initialize app

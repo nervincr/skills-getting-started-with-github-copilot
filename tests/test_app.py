@@ -47,3 +47,22 @@ def test_new_signup_succeeds():
 
     assert response.status_code == 200
     assert response.json()["message"] == "Signed up newstudent@mergington.edu for Chess Club"
+
+
+def test_unregister_succeeds_case_insensitively():
+    response = client.delete(
+        "/activities/Chess%20Club/signup?email=MICHAEL@MERGINGTON.EDU"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Unregistered michael@mergington.edu from Chess Club"
+    assert "michael@mergington.edu" not in app_module.activities["Chess Club"]["participants"]
+
+
+def test_unregister_unknown_student_is_rejected():
+    response = client.delete(
+        "/activities/Chess%20Club/signup?email=unknown@mergington.edu"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Student is not signed up"
